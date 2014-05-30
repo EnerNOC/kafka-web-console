@@ -93,14 +93,43 @@ object Topic extends Controller {
     val connectedZks = connectedZookeepers((z, c) => (z, c)).filter(_._1.name == zookeeper)
 
     if (connectedZks.size > 0) {
+      // val (zk, zkClient) = connectedZks.head
+      // val partitionsOffsetsAndConsumersFuture = for {
+      //   // it's possible that a offset dir hasn't been created yet for some consumers
+      //   ownedTopicNodes <- getZChildren(zkClient, "/consumers/*/owners/" + name)
+      //   val w = play.api.Logger.debug(ownedTopicNodes.toString())
+
+      //   allConsumers = ownedTopicNodes.map(n => n.path.split("/").filter(_ != "")(1))
+      //   val x = play.api.Logger.debug(allConsumers.toString())
+      //   offsetsPartitionsNodes <- getZChildren(zkClient, "/consumers/*/offsets/" + name + "/*")
+      //   val y = play.api.Logger.debug(offsetsPartitionsNodes.toString())
+      //   consumersAndPartitionsAndOffsets <- Future.sequence(offsetsPartitionsNodes.map(p => twitterToScalaFuture(p.getData().map(d => (p.path.split("/")(2), p.name, new String(d.bytes))))))
+      //   val z = play.api.Logger.debug(consumersAndPartitionsAndOffsets.toString())
+      //   partitionsOffsetsAndConsumers = consumersAndPartitionsAndOffsets.groupBy(_._1).map { s =>
+      //     Map("consumerGroup" -> s._1, "offsets" -> s._2.map { t =>
+      //       Map("partition" -> t._2, "offset" -> t._3)
+      //     })
+      //   }.toList
+      //   diff = allConsumers.filterNot { ac =>
+      //     partitionsOffsetsAndConsumers.map(c => ac == c("consumerGroup")).contains(true)
+      //   }
+
+      // } yield diff.map(cg => Map("consumerGroup" -> cg, "offsets" -> Nil)).toList ++ partitionsOffsetsAndConsumers
+      // partitionsOffsetsAndConsumersFuture.map(poc => Ok(Json.toJson(poc)(TopicWrites)))
+
+      //#############################################################################
       val (zk, zkClient) = connectedZks.head
       val partitionsOffsetsAndConsumersFuture = for {
         // it's possible that a offset dir hasn't been created yet for some consumers
-        ownedTopicNodes <- getZChildren(zkClient, "/consumers/*/owners/" + name)
-
-        allConsumers = ownedTopicNodes.map(n => n.path.split("/").filter(_ != "")(1))
-        offsetsPartitionsNodes <- getZChildren(zkClient, "/consumers/*/offsets/" + name + "/*")
-        consumersAndPartitionsAndOffsets <- Future.sequence(offsetsPartitionsNodes.map(p => twitterToScalaFuture(p.getData().map(d => (p.path.split("/")(2), p.name, new String(d.bytes))))))
+        ownedTopicNodes <- getZChildren(zkClient, "/*/partition_0")
+        val x = play.api.Logger.debug(ownedTopicNodes.toString())
+        allConsumers = ownedTopicNodes.map(n => n.path.split("/").filter(_ != "")(0))
+        val y = play.api.Logger.debug(allConsumers.toString())
+        offsetsPartitionsNodes <- getZChildren(zkClient, "/*/partition_0")
+        offsetsPartitionsNodes <- getZChildren(zkClient, "/*/partition_1")
+        val z = play.api.Logger.debug(offsetsPartitionsNodes.toString())
+        consumersAndPartitionsAndOffsets <- Future.sequence(offsetsPartitionsNodes.map(p => twitterToScalaFuture(p.getData().map(d => (p.path.split("/").filter(_ != "")(0), "0", ((new String(d.bytes)).split("""offset\":""")(1)).split(""",\"partition""")(0))))))
+        val w = play.api.Logger.debug(consumersAndPartitionsAndOffsets.toString())
         partitionsOffsetsAndConsumers = consumersAndPartitionsAndOffsets.groupBy(_._1).map { s =>
           Map("consumerGroup" -> s._1, "offsets" -> s._2.map { t =>
             Map("partition" -> t._2, "offset" -> t._3)
