@@ -21,7 +21,7 @@ app.controller("ZookeepersController", function ($scope, $http, $location) {
         var isNewZookeeper = true;
 
         angular.forEach($scope[modelName], function (clientZk) {
-                if (clientZk.name === serverZk.name) {
+                if ((clientZk.cluster + '-' + clientZk.host) === (serverZk.cluster + '-' + serverZk.host)) {
                     clientZk.status = serverZk.status;
                     isNewZookeeper = false;
                 }
@@ -29,7 +29,7 @@ app.controller("ZookeepersController", function ($scope, $http, $location) {
         );
 
         angular.forEach($scope['allZookeepers'], function (clientZk) {
-                if (clientZk.name === serverZk.name) {
+                if ((clientZk.cluster + '-' + clientZk.host) === (serverZk.cluster + '-' + serverZk.host)) {
                     clientZk.status = serverZk.status;
                     isNewZookeeper = false;
                 }
@@ -58,13 +58,13 @@ app.controller("ZookeepersController", function ($scope, $http, $location) {
     };
 
     $scope.createZookeeper = function (zookeeper) {
-        $http.post('/zookeepers.json', { name: zookeeper.name, host: zookeeper.host, port: zookeeper.port, group: zookeeper.group.name, chroot: zookeeper.chroot}).success(function () {
+        $http.post('/zookeepers.json', { host: zookeeper.host, port: zookeeper.port, cluster: zookeeper.cluster, group: zookeeper.group.name, chroot: zookeeper.chroot}).success(function () {
             $location.path("/");
         });
     };
 
     $scope.removeZookeeper = function (zookeeper) {
-        $http.delete('/zookeepers.json/' + zookeeper.name).success(function () {
+        $http.delete('/zookeepers.json/' + zookeeper.cluster + '-' + zookeeper.host).success(function () {
             $location.path("/");
         });
     };

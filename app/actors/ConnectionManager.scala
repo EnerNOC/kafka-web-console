@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -19,7 +21,7 @@ package actors
 import common.{Message, Registry}
 import Registry.PropertyConstants
 import models.{Status, Zookeeper}
-import akka.actor.{ActorRef, Actor}
+import akka.actor.Actor
 import com.twitter.zk._
 import com.twitter.util.JavaTimer
 import com.twitter.conversions.time._
@@ -30,7 +32,7 @@ import play.api.Play.current
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import Message.ConnectNotification
 import akka.actor.Terminated
-import scala.Some
+import scala.language.postfixOps
 import org.apache.zookeeper.Watcher.Event.KeeperState
 import scala.concurrent.Await
 import common.Util
@@ -54,6 +56,7 @@ class ConnectionManager() extends Actor {
 
   private def connect(zk: Zookeeper) {
     models.Zookeeper.findById(zk.id) match {
+      // TODO: Don't use return/what is this doing?
       case Some(s) => if (s.statusId == Status.Deleted.id) return
       case _ => return
     }
@@ -82,7 +85,7 @@ class ConnectionManager() extends Actor {
 
   private def terminate() {
     shutdownConnections()
-    Zookeeper.update(Zookeeper.findAll.map(z => Zookeeper(z.id, z.host, z.port, z.groupId, Status.Disconnected.id, z.chroot)))
+    Zookeeper.update(Zookeeper.findAll.map(z => Zookeeper(z.host, z.port, z.cluster, z.groupId, Status.Disconnected.id, z.chroot)))
   }
 
   private def shutdownConnections() {
@@ -95,7 +98,8 @@ class ConnectionManager() extends Actor {
 
   private def getZkClient(zk: Zookeeper, zkConnections: Map[String, ZkClient]): ZkClient = {
     zkConnections.filterKeys(_ == zk.id) match {
-      case zk if zk.size > 0 => zk.head._2
+      // TODO: warning here
+      case zks if zks.size > 0 => zks.head._2
       case _ =>
         val zkClient = ZkClient(zk.toString, 6000 milliseconds, 6000 milliseconds)(new JavaTimer)
         Registry.registerObject(PropertyConstants.ZookeeperConnections, Map(zk.id -> zkClient) ++ zkConnections)
@@ -119,5 +123,4 @@ class ConnectionManager() extends Actor {
       case _ =>
     }
   }
-
 }

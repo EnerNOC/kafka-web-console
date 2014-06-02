@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -29,16 +31,16 @@ import play.api.libs.concurrent.Akka
 object Zookeeper extends Controller {
 
   val zookeeperForm = Forms.tuple(
-    "name" -> Forms.text,
     "host" -> Forms.text,
     "port" -> Forms.number,
+    "cluster" -> optional(Forms.text),
     "group" -> Forms.text,
     "chroot" -> optional(Forms.text)
   )
 
-  def index(group: String) = Action {
+  def index(group: String): Action[AnyContent] = Action {
 
-    if (group.toUpperCase() == "ALL") {
+    if (group.toUpperCase == "ALL") {
       Ok(Json.toJson(models.Zookeeper.findAll.toList))
     }
     else {
@@ -49,21 +51,25 @@ object Zookeeper extends Controller {
     }
   }
 
-  def create() = Action { implicit request =>
+  def create(): Action[AnyContent] = Action { implicit request =>
     val result = Form(zookeeperForm).bindFromRequest.fold(
       formFailure => BadRequest,
       formSuccess => {
 
-        val name: String = formSuccess._1
-        val host: String = formSuccess._2
-        val port: Int = formSuccess._3
+        val host: String = formSuccess._1
+        val port: Int = formSuccess._2
+        val cluster: String = formSuccess._3 match {
+          case Some(s) => s
+          case _ => formSuccess._1
+        }
         val group: String = formSuccess._4
         val chroot: String = formSuccess._5 match {
           case Some(s) => s
           case _ => ""
         }
 
-        val zk = models.Zookeeper.insert(models.Zookeeper(name, host, port, models.Group.findByName(group.toUpperCase).get.id, models.Status.Disconnected.id, chroot))
+        val zk = models.Zookeeper.insert(models.Zookeeper(host, port, cluster, models.Group.findByName(group.toUpperCase).get.id,
+                                                                               models.Status.Disconnected.id, chroot))
 
         Akka.system.actorSelection("akka://application/user/router") ! Message.Connect(zk)
         Ok
@@ -74,14 +80,14 @@ object Zookeeper extends Controller {
     result
   }
 
-  def delete(name: String) = Action {
-    val zk = models.Zookeeper.findById(name).get
-    models.Zookeeper.update(models.Zookeeper(zk.id, zk.host, zk.port, zk.groupId, models.Status.Deleted.id, zk.chroot))
+  def delete(id: String): Action[AnyContent] = Action {
+    val zk = models.Zookeeper.findById(id).get
+    models.Zookeeper.update(models.Zookeeper(zk.host, zk.port, zk.cluster, zk.groupId, models.Status.Deleted.id, zk.chroot))
     Akka.system.actorSelection("akka://application/user/router") ! Message.Disconnect(zk)
     Ok
   }
 
-  def feed() = WebSocket.using[String] { implicit request =>
+  def feed(): WebSocket[String] = WebSocket.using[String] { implicit request =>
 
     val in = Iteratee.ignore[String]
 

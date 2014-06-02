@@ -1,12 +1,14 @@
 # --- !Ups
 
 CREATE TABLE zookeepers (
-  name VARCHAR,
+  id VARCHAR,
   host VARCHAR,
   port INT,
+  cluster VARCHAR,
   statusId LONG,
   groupId LONG,
-  PRIMARY KEY (name)
+  chroot VARCHAR,
+  PRIMARY KEY (id)
 );
 
 CREATE TABLE groups (
@@ -18,6 +20,17 @@ CREATE TABLE groups (
 CREATE TABLE status (
   id LONG,
   name VARCHAR,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE consumptionData (
+  id LONG NOT NULL AUTO_INCREMENT,
+  factor LONG,
+  timestmp LONG,
+  name VARCHAR,
+  cluster VARCHAR,
+  topic VARCHAR,
+  offsets LONG,
   PRIMARY KEY (id)
 );
 
@@ -37,3 +50,4 @@ INSERT INTO status (id, name) VALUES (3, 'DELETED');
 DROP TABLE IF EXISTS zookeepers;
 DROP TABLE IF EXISTS groups;
 DROP TABLE IF EXISTS status;
+DROP TABLE IF EXISTS consumptionData;

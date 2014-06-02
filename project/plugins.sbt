@@ -6,3 +6,8 @@ resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/release
 
 // Use the Play sbt plugin for Play projects
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.2.1")
+
+// Use scalastyle to have good lookin' code
+addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.4.0")
+
+resolvers += "sonatype-releases" at "https://oss.sonatype.org/content/repositories/releases/"

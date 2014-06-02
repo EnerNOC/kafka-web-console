@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,9 +18,8 @@
 
 package models
 
-import org.squeryl.{KeyedEntity, Query}
+import org.squeryl.KeyedEntity
 import org.squeryl.PrimitiveTypeMode._
-import scala.collection.Iterable
 
 object Status extends Enumeration {
   type Status = Value
@@ -30,7 +31,7 @@ object Status extends Enumeration {
 
 }
 
-case class Status(val name: String) extends KeyedEntity[Long] {
+case class Status(name: String) extends KeyedEntity[Long] {
 
   override val id = 0L
 

@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,12 +18,12 @@
 
 package controllers
 
-import play.api.mvc.{Controller, Action}
+import play.api.mvc.{AnyContent, Controller, Action}
 import play.api.libs.json._
 
 object Group extends Controller {
 
-  def index() = Action {
+  def index(): Action[AnyContent] = Action {
     val zookeepers = models.Group.findByName("ALL").get.zookeepers
 
     Ok(Json.toJson(zookeepers))

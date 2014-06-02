@@ -13,4 +13,8 @@ libraryDependencies ++= Seq(
     exclude("com.sun.jmx", "jmxri")
 )
 
+scalacOptions += "-feature"
+
 play.Project.playScalaSettings
+
+org.scalastyle.sbt.ScalastylePlugin.Settings

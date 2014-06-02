@@ -9,20 +9,23 @@ GET           /zookeepers                                         controllers.As
 GET           /zookeepers.json/feed                               controllers.Zookeeper.feed()
 GET           /zookeepers.json/:group                             controllers.Zookeeper.index(group)
 POST          /zookeepers.json                                    controllers.Zookeeper.create()
-DELETE        /zookeepers.json/:name                              controllers.Zookeeper.delete(name)
+DELETE        /zookeepers.json/:id                                controllers.Zookeeper.delete(id)
 
 GET           /topics                                             controllers.Assets.at(path="/public", file="html/partials/topic/index.html")
 GET           /topics.json                                        controllers.Topic.index()
-GET           /topics.json/:name/:zookeeper                       controllers.Topic.show(name, zookeeper)
-GET           /topics.json/:name/:zookeeper/feed                  controllers.Topic.feed(name, zookeeper)
-GET           /topics/:name/:zookeeper                            controllers.IgnoreParamAssets.at(path="/public", file="html/partials/topic/show.html", name, zookeeper)
-
-GET           /consumergroups.json/:name/:topic/:zookeeper        controllers.ConsumerGroup.show(name, topic, zookeeper)
+GET           /topics.json/:name/:cluster                         controllers.Topic.show(name, cluster)
+GET           /topics.json/:name/:cluster/range                   controllers.Topic.range(name, cluster)
+GET           /topics.json/:name/:cluster/feed                    controllers.Topic.feed(name, cluster)
+GET           /topics.json/:name/:cluster/graph                   controllers.Topic.graph(name, cluster)
+GET           /topics/:name/:cluster                              controllers.IgnoreParamAssets.at(path="/public", file="html/partials/topic/show.html", name, cluster)
 
 GET           /groups                                             controllers.Group.index()
 
 GET           /brokers                                            controllers.Assets.at(path="/public", file="html/partials/broker/index.html")
 GET           /brokers.json                                       controllers.Broker.index()
+
+# API Endpoints
+GET           /api/consumergroupstatus                            controllers.Api.cgstatus(zookeeper: String ?= "", consumergroup: String ?= "")
 
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                       controllers.Assets.at(path="/public", file)

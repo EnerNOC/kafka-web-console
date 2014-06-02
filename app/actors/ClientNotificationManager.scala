@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -19,13 +21,14 @@ package actors
 import akka.actor.Actor
 import common.{Message, Registry}
 import Registry.PropertyConstants
-import play.api.libs.iteratee.{Concurrent, Enumerator}
+import play.api.libs.iteratee.Concurrent
 import play.api.libs.json.Json
 
 class ClientNotificationManager extends Actor {
 
   val channel = Registry.lookupObject(PropertyConstants.BroadcastChannel) match {
     case Some(broadcastChannel: (_, _)) => broadcastChannel._2.asInstanceOf[Concurrent.Channel[String]]
+    case _ => sys.error("No broadcast channel found.")
   }
 
   override def receive: Actor.Receive = {

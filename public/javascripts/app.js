@@ -13,10 +13,10 @@ var app = angular.module('app', ['ngRoute'])
                 controller: 'BrokersController',
                 templateUrl: '/brokers'
             })
-            .when('/topics/:name/:zookeeper', {
+            .when('/topics/:name/:cluster', {
                 controller: 'TopicController',
                 templateUrl: function (params) {
-                    return '/topics/' + params.name + '/' + params.zookeeper
+                    return '/topics/' + params.name + '/' + params.cluster
                 }
             })
             .otherwise({
@@ -32,7 +32,7 @@ app.run(function ($rootScope, $location) {
 
 app.service('topicService', function () {
     var topic_ = "";
-    var zookeeper_ = "";
+    var cluster = "";
 
     this.setTopic = function (topic) {
         topic_ = topic;
@@ -42,12 +42,12 @@ app.service('topicService', function () {
         return topic_;
     };
 
-    this.setZookeeper = function (zookeeper) {
-        zookeeper_ = zookeeper;
+    this.setCluster = function (cluster) {
+        cluster_ = cluster;
     };
 
-    this.getZookeeper = function () {
-        return zookeeper_;
+    this.getCluster = function () {
+        return cluster_;
     };
 });
 

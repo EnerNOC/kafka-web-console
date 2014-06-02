@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -23,6 +25,7 @@ object Database extends Schema {
   val zookeepersTable = table[Zookeeper]("zookeepers")
   val groupsTable = table[Group]("groups")
   val statusTable = table[Status]("status")
+  val consumptionDataTable = table[ConsumptionData]("consumptionData")
 
   val groupToZookeepers = oneToManyRelation(groupsTable, zookeepersTable).via((group, zk) => group.id === zk.groupId)
   val statusToZookeepers = oneToManyRelation(statusTable, zookeepersTable).via((status, zk) => status.id === zk.statusId)
@@ -30,24 +33,30 @@ object Database extends Schema {
   on(this.zookeepersTable) {
     zookeeper =>
       declare(
-        zookeeper.name is (primaryKey)
+        zookeeper.id is primaryKey
       )
   }
 
   on(this.groupsTable) {
     group =>
       declare(
-        group.id is (autoIncremented),
-        group.name is (unique)
+        group.id is autoIncremented,
+        group.name is unique
       )
   }
 
   on(this.statusTable) {
     status =>
       declare(
-        status.id is (autoIncremented),
-        status.name is (unique)
+        status.id is autoIncremented,
+        status.name is unique
       )
   }
 
+  on(this.consumptionDataTable) {
+    consumptionData =>
+      declare(
+        consumptionData.id is (primaryKey, autoIncremented)
+      )
+  }
 }

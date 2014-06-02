@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,54 +18,40 @@
 
 package controllers
 
-import play.api.mvc.{WebSocket, Action, Controller}
+import play.api.mvc.{AnyContent, WebSocket, Action, Controller}
 import scala.concurrent.Future
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import common.Util._
 import play.api.libs.json._
 import play.api.libs.json.JsObject
 import play.api.libs.iteratee.{Concurrent, Iteratee}
-import common.Registry
-import common.Registry.PropertyConstants
-import java.util
-import kafka.javaapi.consumer.EventHandler
-import kafka.message.MessageAndMetadata
-import kafka.serializer.StringDecoder
-import kafka.consumer.async.Consumer
-import kafka.consumer.ConsumerConfig
-import java.util.Properties
-import com.twitter.zk.ZkClient
-import scala.util.Random
+import models.Cache
 
 object Topic extends Controller {
 
-  object TopicsWrites extends Writes[List[Map[String, Object]]] {
-    def writes(l: List[Map[String, Object]]) = {
-      val topics = l.map { t =>
-
-        val js = t.map { e =>
-          val v = e._2 match {
-            case v: Seq[_] => Json.toJson(e._2.asInstanceOf[Seq[String]])
-            case v => Json.toJson(v.toString)
-          }
-          (e._1, v)
-        }.toList
-
-        JsObject(js)
-      }
+  /**
+   * Defines the format for JSON when sending the list of topics.
+   */
+  object TopicsWrites extends Writes[Iterable[(String, Iterable[Int], String)]] {
+    def writes(l: Iterable[(String, Iterable[Int], String)]): JsArray = {
+      val topics = l.map(tp => {
+        JsObject(Seq("name" -> Json.toJson(tp._1), "partitions" -> Json.toJson(tp._2), "cluster" -> Json.toJson(tp._3)))
+      }).toSeq
       JsArray(topics)
     }
   }
 
+  /**
+   * Defines the format for JSON when sending an individual topic.
+   */
   object TopicWrites extends Writes[List[Map[String, Object]]] {
-    def writes(l: List[Map[String, Object]]) = {
+    def writes(l: List[Map[String, Object]]): JsArray = {
       val topics = l.map { t =>
 
         val js = t.map { e =>
           val v = e._2 match {
-            case v: Seq[_] => {
+            case v: Seq[_] =>
               Json.toJson(e._2.asInstanceOf[Seq[Map[String, String]]])
-            }
+            // TODO: There is a warning here
             case v => Json.toJson(v.toString)
           }
           (e._1, v)
@@ -75,117 +63,88 @@ object Topic extends Controller {
     }
   }
 
-  def index = Action.async {
-    val topicsZks = connectedZookeepers { (zk, zkClient) =>
-      for {
-        // it's possible for topics without partitions in Zookeeper
-        allTopicNodes <- getZChildren(zkClient, "/brokers/topics/*")
-        allTopics = allTopicNodes.map(p => (p.path.split("/").filter(_ != "")(2), Seq[String]())).toMap
-        partitions <- getZChildren(zkClient, "/brokers/topics/*/partitions/*")
-        topics = partitions.map(p => (p.path.split("/").filter(_ != "")(2), p.name)).groupBy(_._1).map(e => e._1 -> e._2.map(_._2))
-      } yield (allTopics ++ topics).map(e => Map("name" -> e._1, "partitions" -> e._2, "zookeeper" -> zk.name)).toList
-    }
-
-    Future.sequence(topicsZks).map(l => Ok(Json.toJson(l.flatten)(TopicsWrites)))
+  /**
+   * Main page for topics.
+   * @return Topics to display.
+   */
+  def index: Action[AnyContent] = Action.async {
+    val data = Cache.queryClustersAndTopics()
+    Future(Ok(Json.toJson(data)(TopicsWrites)))
   }
 
-  def show(name: String, zookeeper: String) = Action.async {
-    val connectedZks = connectedZookeepers((z, c) => (z, c)).filter(_._1.name == zookeeper)
-
-    if (connectedZks.size > 0) {
-      // val (zk, zkClient) = connectedZks.head
-      // val partitionsOffsetsAndConsumersFuture = for {
-      //   // it's possible that a offset dir hasn't been created yet for some consumers
-      //   ownedTopicNodes <- getZChildren(zkClient, "/consumers/*/owners/" + name)
-      //   val w = play.api.Logger.debug(ownedTopicNodes.toString())
-
-      //   allConsumers = ownedTopicNodes.map(n => n.path.split("/").filter(_ != "")(1))
-      //   val x = play.api.Logger.debug(allConsumers.toString())
-      //   offsetsPartitionsNodes <- getZChildren(zkClient, "/consumers/*/offsets/" + name + "/*")
-      //   val y = play.api.Logger.debug(offsetsPartitionsNodes.toString())
-      //   consumersAndPartitionsAndOffsets <- Future.sequence(offsetsPartitionsNodes.map(p => twitterToScalaFuture(p.getData().map(d => (p.path.split("/")(2), p.name, new String(d.bytes))))))
-      //   val z = play.api.Logger.debug(consumersAndPartitionsAndOffsets.toString())
-      //   partitionsOffsetsAndConsumers = consumersAndPartitionsAndOffsets.groupBy(_._1).map { s =>
-      //     Map("consumerGroup" -> s._1, "offsets" -> s._2.map { t =>
-      //       Map("partition" -> t._2, "offset" -> t._3)
-      //     })
-      //   }.toList
-      //   diff = allConsumers.filterNot { ac =>
-      //     partitionsOffsetsAndConsumers.map(c => ac == c("consumerGroup")).contains(true)
-      //   }
-
-      // } yield diff.map(cg => Map("consumerGroup" -> cg, "offsets" -> Nil)).toList ++ partitionsOffsetsAndConsumers
-      // partitionsOffsetsAndConsumersFuture.map(poc => Ok(Json.toJson(poc)(TopicWrites)))
-
-      //#############################################################################
-      val (zk, zkClient) = connectedZks.head
-      val partitionsOffsetsAndConsumersFuture = for {
-        // it's possible that a offset dir hasn't been created yet for some consumers
-        ownedTopicNodes <- getZChildren(zkClient, "/*/partition_0")
-        val x = play.api.Logger.debug(ownedTopicNodes.toString())
-        allConsumers = ownedTopicNodes.map(n => n.path.split("/").filter(_ != "")(0))
-        val y = play.api.Logger.debug(allConsumers.toString())
-        offsetsPartitionsNodes <- getZChildren(zkClient, "/*/partition_0")
-        offsetsPartitionsNodes <- getZChildren(zkClient, "/*/partition_1")
-        val z = play.api.Logger.debug(offsetsPartitionsNodes.toString())
-        consumersAndPartitionsAndOffsets <- Future.sequence(offsetsPartitionsNodes.map(p => twitterToScalaFuture(p.getData().map(d => (p.path.split("/").filter(_ != "")(0), "0", ((new String(d.bytes)).split("""offset\":""")(1)).split(""",\"partition""")(0))))))
-        val w = play.api.Logger.debug(consumersAndPartitionsAndOffsets.toString())
-        partitionsOffsetsAndConsumers = consumersAndPartitionsAndOffsets.groupBy(_._1).map { s =>
-          Map("consumerGroup" -> s._1, "offsets" -> s._2.map { t =>
-            Map("partition" -> t._2, "offset" -> t._3)
-          })
-        }.toList
-        diff = allConsumers.filterNot { ac =>
-          partitionsOffsetsAndConsumers.map(c => ac == c("consumerGroup")).contains(true)
-        }
-
-      } yield diff.map(cg => Map("consumerGroup" -> cg, "offsets" -> Nil)).toList ++ partitionsOffsetsAndConsumers
-      partitionsOffsetsAndConsumersFuture.map(poc => Ok(Json.toJson(poc)(TopicWrites)))
-    }
-    else {
-      Future(Ok(Json.toJson(List[String]())))
-    }
+  /**
+   * View for a topic and related consumer groups.
+   * @param topic Topic name.
+   * @param cluster Zookeeper cluster name.
+   * @return Consumer groups and offsets.
+   */
+  def show(topic: String, cluster: String): Action[AnyContent] = Action.async {
+    val data = collectPartitions(Cache.queryOffsets(cluster, topic))
+    Future(Ok(Json.toJson(data)(TopicWrites)))
   }
 
-  def feed(name: String, zookeeper: String) = WebSocket.using[String] { implicit request =>
+  /**
+   * Collects the starting and ending offsets for a topic.
+   * @param topic Topic name.
+   * @param cluster Zookeeper cluster name.
+   * @return Starting and ending offsets.
+   */
+  def range(topic: String, cluster: String): Action[AnyContent] = Action.async {
+    val data = collectPartitions(Cache.queryRanges(cluster, topic))
+    Future(Ok(Json.toJson(data)(TopicWrites)))
+  }
 
-    val topicCountMap = new util.HashMap[EventHandler[String, String], Integer]()
-    val zk = models.Zookeeper.findById(zookeeper).get
-    val consumerGroup = "web-console-consumer-" + Random.nextInt(100000)
-    val consumer = Consumer.create(createConsumerConfig(zk.toString, consumerGroup))
-    val zkClient = Registry.lookupObject(PropertyConstants.ZookeeperConnections).get.asInstanceOf[Map[String, ZkClient]](models.Zookeeper.findById(zookeeper).get.name)
+  /**
+   * Samples messages from each partition of a topic.
+   * @param topic Topic name.
+   * @param cluster Zookeeper cluster name.
+   * @return Message sample set.
+   */
+  def feed(topic: String, cluster: String): Action[AnyContent] = Action.async {
+    Future(Ok(Json.toJson(Cache.queryMessages(cluster, topic))))
+  }
+
+  /**
+   * Feeds a set of data to the viewer so that the graph can be displayed.
+   * @param topic Topic name.
+   * @param cluster Zookeeper cluster name.
+   * @return Set of data points.
+   */
+  def graph(topic: String, cluster: String): WebSocket[String] = WebSocket.using[String] { implicit request =>
+
+    val id = new scala.util.Random().nextInt()
 
     val out = Concurrent.unicast[String] { channel: Concurrent.Channel[String] =>
-
-      val cb = (messageHolder: MessageAndMetadata[String, String]) => {
-        channel.push(messageHolder.message)
+      play.api.Logger.info("Web client connected to graph.")
+      val cb = (cd: models.ConsumptionData) => {
+        channel.push(Json.toJson(cd).toString())
       }
 
-      getZChildren(zkClient, "/brokers/topics/" + name + "/partitions/*").map { p =>
-        topicCountMap.put(new EventHandler(name, cb), p.size)
-        consumer.createMessageStreams(topicCountMap, new StringDecoder(), new StringDecoder())
-      }
-
+      val topicData = models.ConsumptionData.findByTopicAndCluster(cluster, topic)
+      topicData.map(d => {
+        cb(d)
+      })
+      actors.DataCollector.addSocket(id, topic, cb)
     }
 
     val in = Iteratee.foreach[String](println).map { _ =>
-      consumer.commitOffsets()
-      consumer.shutdown()
-      deleteZNode(zkClient, "/consumers/" + consumerGroup)
+      play.api.Logger.info("Web client disconnected from graph.")
+      actors.DataCollector.removeSocket(id)
     }
 
     (in, out)
   }
 
-  private def createConsumerConfig(zookeeperAddress: String, gid: String): ConsumerConfig = {
-    val props = new Properties();
-    props.put("zookeeper.connect", zookeeperAddress);
-    props.put("group.id", gid);
-    props.put("zookeeper.session.timeout.ms", "400");
-    props.put("zookeeper.sync.time.ms", "200");
-    props.put("auto.commit.interval.ms", "1000");
-
-    return new ConsumerConfig(props);
+  /**
+   * Used to collect and format a sequence of consumer and topic offsets.
+   * @param sequence Set of (consumerGroup, partition, offset)
+   * @return Collection of consumerGroup data.
+   */
+  def collectPartitions(sequence: Seq[(String, String, String)]): List[Map[String, Object]] = {
+    sequence.filter((a: (String, String, String)) => a._1 != "").groupBy(_._1).map { s =>
+      Map("consumerGroup" -> s._1, "offsets" -> s._2.map { t =>
+        Map("partition" -> t._2, "offset" -> t._3)
+      })
+    }.toList
   }
-
 }

@@ -5,6 +5,6 @@ app.controller("TopicsController", function ($scope, $location, $http) {
         });
 
     $scope.getTopic = function (topic) {
-        $location.path('/topics/' + topic.name + '/' + topic.zookeeper);
+        $location.path('/topics/' + topic.name + '/' + topic.cluster);
     };
 });

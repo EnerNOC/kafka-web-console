@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,25 +18,23 @@
 
 package models
 
-import org.squeryl.{Query, KeyedEntity}
+import org.squeryl.KeyedEntity
 import org.squeryl.PrimitiveTypeMode._
-import org.squeryl.dsl.{CompositeKey, CompositeKey2, CompositeKey3}
 import play.api.libs.json._
-import models.Database._
 import scala.collection.Iterable
-import org.squeryl.annotations.Column
 
 object Zookeeper {
 
   import Database.zookeepersTable
 
   implicit object ZookeeperWrites extends Writes[Zookeeper] {
-    def writes(zookeeper: Zookeeper) = {
+    def writes(zookeeper: Zookeeper): JsObject = {
 
       Json.obj(
-        "name" -> zookeeper.name,
+        "id" -> zookeeper.id,
         "host" -> zookeeper.host,
         "port" -> zookeeper.port,
+        "cluster" -> zookeeper.cluster,
         "group" -> Group.apply(zookeeper.groupId.toInt).toString,
         "status" -> Status.apply(zookeeper.statusId.toInt).toString,
         "chroot" -> zookeeper.chroot
@@ -48,16 +48,20 @@ object Zookeeper {
     }.toList
   }
 
+  def findByCluster(cluster: String): Iterable[Zookeeper] = inTransaction {
+    from(zookeepersTable)(zk => where(zk.cluster === cluster) select zk).toList
+  }
+
   def findByStatusId(statusId: Long): Iterable[Zookeeper] = inTransaction {
-    from(zookeepersTable)(zk => where(zk.statusId === statusId) select (zk)).toList
+    from(zookeepersTable)(zk => where(zk.statusId === statusId) select zk).toList
   }
 
-  def findById(name: String): Option[Zookeeper] = inTransaction {
-    zookeepersTable.lookup(name)
+  def findById(id: String): Option[Zookeeper] = inTransaction {
+    zookeepersTable.lookup(id)
   }
 
-  def upsert(zookeeper: Zookeeper) = inTransaction {
-    val zkCount = from(zookeepersTable)(z => where(zookeeper.name === z.name) select (z)).toList.size
+  def upsert(zookeeper: Zookeeper): Unit = inTransaction {
+    val zkCount = from(zookeepersTable)(z => where(zookeeper.id === z.id) select z).toList.size
     zkCount match {
       case 1 => this.update(zookeeper)
       case _ if zkCount < 1 => this.insert(zookeeper)
@@ -65,16 +69,16 @@ object Zookeeper {
     }
   }
 
-  def insert(zookeeper: Zookeeper) = inTransaction {
+  def insert(zookeeper: Zookeeper): Zookeeper = inTransaction {
     zookeepersTable.insert(zookeeper)
   }
 
-  def update(zookeeper: Zookeeper) = inTransaction {
+  def update(zookeeper: Zookeeper): Unit = inTransaction {
     zookeepersTable.update(zookeeper)
   }
 
-  def delete(zookeeper: Zookeeper) = inTransaction {
-    zookeepersTable.delete(zookeeper.name)
+  def delete(zookeeper: Zookeeper): Boolean = inTransaction {
+    zookeepersTable.delete(zookeeper.id)
   }
 
   def update(zookeepers: Iterable[Zookeeper]) {
@@ -84,10 +88,10 @@ object Zookeeper {
   }
 }
 
-case class Zookeeper(@Column("name") id: String, host: String, port: Int, groupId: Long, statusId: Long, chroot: String)
+case class Zookeeper(host: String, port: Int, cluster: String, groupId: Long, statusId: Long, chroot: String)
   extends KeyedEntity[String] {
 
-  def name = id
+  val id = cluster + "-" + host
 
-  override def toString = "%s:%s/%s".format(host, port, chroot)
+  override def toString: String = "%s:%s/%s".format(host, port, chroot)
 }

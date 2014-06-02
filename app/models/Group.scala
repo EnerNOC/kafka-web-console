@@ -1,5 +1,7 @@
-/*
- * Copyright 2014 Claude Mamo
+/**
+ * Copyright (C) 2014 the original author or authors.
+ * See the LICENCE.txt file distributed with this work for additional
+ * information regarding copyright ownership.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -18,8 +20,7 @@ package models
 
 import org.squeryl.PrimitiveTypeMode._
 import collection.Iterable
-import org.squeryl.{Query, KeyedEntity}
-import org.squeryl.dsl.OneToMany
+import org.squeryl.KeyedEntity
 
 object Group extends Enumeration {
 
@@ -37,12 +38,12 @@ object Group extends Enumeration {
     }
   }
 
-  def findByName(name: String) = inTransaction {
-    from(groupsTable)(group => where(group.name === name) select (group)).headOption
+  def findByName(name: String): Option[Group] = inTransaction {
+    from(groupsTable)(group => where(group.name === name) select group).headOption
   }
 }
 
-case class Group(val name: String) extends KeyedEntity[Long] {
+case class Group(name: String) extends KeyedEntity[Long] {
   override val id = 0L
 
   lazy val zookeepers: List[Zookeeper] = inTransaction {
